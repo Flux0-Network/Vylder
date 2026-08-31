@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { arrayMove } from "@dnd-kit/sortable";
-import type { DragEndEvent } from "@dnd-kit/core";
 import { Sidebar } from "./components/Sidebar";
 import { Canvas } from "./components/Canvas";
 import { Toolbar } from "./components/Toolbar";
@@ -26,9 +24,18 @@ export default function EditorPage() {
       id: newId(),
       type,
       props: { ...palette.defaultProps },
+      x: 80 + Math.random() * 200,
+      y: 80 + Math.random() * 200,
+      width: palette.defaultWidth,
     };
     setBlocks((prev) => [...prev, block]);
     setSelectedId(block.id);
+  }, []);
+
+  const moveBlock = useCallback((id: string, x: number, y: number) => {
+    setBlocks((prev) =>
+      prev.map((b) => (b.id === id ? { ...b, x: Math.round(x), y: Math.round(y) } : b))
+    );
   }, []);
 
   const deleteSelected = useCallback(() => {
@@ -37,17 +44,6 @@ export default function EditorPage() {
     setSelectedId(null);
   }, [selectedId]);
 
-  const handleReorder = useCallback((event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    setBlocks((prev) => {
-      const oldIndex = prev.findIndex((b) => b.id === active.id);
-      const newIndex = prev.findIndex((b) => b.id === over.id);
-      return arrayMove(prev, oldIndex, newIndex);
-    });
-  }, []);
-
-  // Delete key shortcut
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
@@ -75,7 +71,7 @@ export default function EditorPage() {
           blocks={blocks}
           selectedId={selectedId}
           onSelect={setSelectedId}
-          onReorder={handleReorder}
+          onMove={moveBlock}
         />
       </div>
     </div>
