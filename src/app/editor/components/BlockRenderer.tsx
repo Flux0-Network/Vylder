@@ -8,106 +8,169 @@ interface Props {
   selected: boolean;
 }
 
-export function BlockRenderer({ block, selected }: Props) {
-  const { type, props } = block;
+export function BlockRenderer({ block }: Props) {
+  const { type, props: p } = block;
 
-  return (
-    <div
-      className={`outline-2 outline-offset-2 rounded transition-all ${
-        selected ? "outline outline-[#7c5cfc]" : "outline-transparent hover:outline hover:outline-white/20"
-      }`}
-    >
-      {type === "heading" && (
-        <HeadingBlock text={props.text} level={props.level as "h1" | "h2" | "h3"} />
-      )}
-      {type === "text" && <TextBlock text={props.text} />}
-      {type === "button" && <ButtonBlock label={props.label} variant={props.variant} />}
-      {type === "navbar" && <NavbarBlock brand={props.brand} />}
-      {type === "dropdown" && (
-        <DropdownBlock label={props.label} items={props.items.split(",")} />
-      )}
-      {type === "divider" && <DividerBlock />}
-      {type === "image" && <ImageBlock alt={props.alt} height={props.height} />}
-    </div>
-  );
-}
+  const textStyle = {
+    color: p.color ?? undefined,
+    fontSize: p.fontSize ? `${p.fontSize}px` : undefined,
+    fontWeight: p.fontWeight ?? undefined,
+    textAlign: (p.textAlign as React.CSSProperties["textAlign"]) ?? undefined,
+  };
 
-function HeadingBlock({ text, level }: { text: string; level: "h1" | "h2" | "h3" }) {
-  const Tag = level;
-  const sizes = { h1: "text-4xl font-bold", h2: "text-2xl font-semibold", h3: "text-xl font-medium" };
-  return <Tag className={`${sizes[level]} text-gray-900`}>{text}</Tag>;
-}
+  if (type === "heading") {
+    const Tag = (p.level ?? "h2") as "h1" | "h2" | "h3";
+    const defaults: Record<string, string> = { h1: "2.25rem", h2: "1.5rem", h3: "1.25rem" };
+    return (
+      <Tag style={{ ...textStyle, fontSize: p.fontSize ? `${p.fontSize}px` : defaults[Tag], fontWeight: p.fontWeight ?? "700", margin: 0 }}>
+        {p.text ?? "Überschrift"}
+      </Tag>
+    );
+  }
 
-function TextBlock({ text }: { text: string }) {
-  return <p className="text-gray-700 leading-relaxed">{text}</p>;
-}
+  if (type === "text") {
+    return (
+      <p style={{ ...textStyle, margin: 0, lineHeight: 1.6 }}>
+        {p.text ?? "Text"}
+      </p>
+    );
+  }
 
-function ButtonBlock({ label, variant }: { label: string; variant: string }) {
-  return (
-    <button
-      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-        variant === "primary"
-          ? "bg-[#7c5cfc] text-white hover:bg-[#6d4ef0]"
-          : "border border-gray-300 text-gray-700 hover:bg-gray-50"
-      }`}
-    >
-      {label}
-    </button>
-  );
-}
+  if (type === "button") {
+    const isPrimary = p.variant !== "outline";
+    return (
+      <button
+        style={{
+          background: isPrimary ? (p.fill ?? "#7c5cfc") : "transparent",
+          color: isPrimary ? "#fff" : (p.fill ?? "#7c5cfc"),
+          border: isPrimary ? "none" : `2px solid ${p.fill ?? "#7c5cfc"}`,
+          borderRadius: `${p.radius ?? 8}px`,
+          padding: "8px 16px",
+          fontWeight: 500,
+          fontSize: "14px",
+          cursor: "default",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {p.label ?? "Button"}
+      </button>
+    );
+  }
 
-function NavbarBlock({ brand }: { brand: string }) {
-  return (
-    <nav className="flex items-center justify-between px-4 py-3 bg-white border border-gray-200 rounded-lg">
-      <span className="font-semibold text-gray-900">{brand}</span>
-      <div className="flex gap-4 text-sm text-gray-600">
-        <a href="#" className="hover:text-gray-900">Home</a>
-        <a href="#" className="hover:text-gray-900">Über uns</a>
-        <a href="#" className="hover:text-gray-900">Kontakt</a>
+  if (type === "navbar") {
+    return (
+      <nav
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "12px 16px",
+          background: p.fill ?? "#ffffff",
+          border: "1px solid #e5e7eb",
+          borderRadius: `${p.radius ?? 8}px`,
+          width: "100%",
+          boxSizing: "border-box",
+        }}
+      >
+        <span style={{ fontWeight: 600, color: "#111" }}>{p.brand ?? "Brand"}</span>
+        <div style={{ display: "flex", gap: 20, fontSize: 14, color: "#666" }}>
+          <a href="#" style={{ color: "inherit", textDecoration: "none" }}>Home</a>
+          <a href="#" style={{ color: "inherit", textDecoration: "none" }}>Über uns</a>
+          <a href="#" style={{ color: "inherit", textDecoration: "none" }}>Kontakt</a>
+        </div>
+      </nav>
+    );
+  }
+
+  if (type === "dropdown") {
+    return <DropdownBlock label={p.label ?? "Menü"} items={(p.items ?? "").split(",")} />;
+  }
+
+  if (type === "divider") {
+    return (
+      <hr
+        style={{
+          border: "none",
+          borderTop: `${p.strokeWidth ?? 1}px solid ${p.stroke ?? "#e5e7eb"}`,
+          width: "100%",
+          margin: 0,
+        }}
+      />
+    );
+  }
+
+  if (type === "image") {
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          background: p.fill ?? "#f3f4f6",
+          border: "2px dashed #d1d5db",
+          borderRadius: `${p.radius ?? 8}px`,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#9ca3af",
+          fontSize: 13,
+          gap: 6,
+        }}
+      >
+        <span style={{ fontSize: 28 }}>⬜</span>
+        <span>{p.alt ?? "Bild"}</span>
       </div>
-    </nav>
-  );
+    );
+  }
+
+  return null;
 }
 
 function DropdownBlock({ label, items }: { label: string; items: string[] }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="relative inline-block">
+    <div style={{ position: "relative", display: "inline-block" }}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "8px 14px",
+          background: "#fff",
+          border: "1px solid #e5e7eb",
+          borderRadius: 8,
+          fontSize: 14,
+          color: "#374151",
+          cursor: "default",
+        }}
       >
         {label}
-        <span className={`transition-transform ${open ? "rotate-180" : ""}`}>▾</span>
+        <span style={{ transform: open ? "rotate(180deg)" : undefined, display: "inline-block" }}>▾</span>
       </button>
       {open && (
-        <div className="absolute left-0 mt-1 min-w-[140px] bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10">
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            top: "100%",
+            marginTop: 4,
+            background: "#fff",
+            border: "1px solid #e5e7eb",
+            borderRadius: 8,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+            padding: "4px 0",
+            minWidth: 140,
+            zIndex: 10,
+          }}
+        >
           {items.map((item) => (
-            <button
-              key={item}
-              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-            >
+            <div key={item} style={{ padding: "8px 14px", fontSize: 14, color: "#374151", cursor: "default" }}>
               {item.trim()}
-            </button>
+            </div>
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-function DividerBlock() {
-  return <hr className="border-gray-200" />;
-}
-
-function ImageBlock({ alt, height }: { alt: string; height: string }) {
-  return (
-    <div
-      className="w-full rounded-lg bg-gray-100 border-2 border-dashed border-gray-300 flex flex-col items-center justify-center gap-2 text-gray-400"
-      style={{ height: `${height}px` }}
-    >
-      <span className="text-3xl">⬜</span>
-      <span className="text-sm">{alt}</span>
     </div>
   );
 }

@@ -1,46 +1,57 @@
 "use client";
 
-import type { CanvasBlock } from "../types";
+import type { Tool } from "../types";
 
 interface Props {
-  selectedBlock: CanvasBlock | null;
+  tool: Tool;
+  onTool: (t: Tool) => void;
+  selectedCount: number;
   onDelete: () => void;
-  onDeselect: () => void;
 }
 
-export function Toolbar({ selectedBlock, onDelete, onDeselect }: Props) {
+const TOOLS: { id: Tool; label: string; icon: string; key: string }[] = [
+  { id: "select", label: "Auswählen", icon: "↖", key: "V" },
+  { id: "frame", label: "Frame", icon: "⬚", key: "F" },
+  { id: "rect", label: "Rechteck", icon: "□", key: "R" },
+  { id: "circle", label: "Kreis", icon: "○", key: "O" },
+  { id: "text", label: "Text", icon: "T", key: "T" },
+];
+
+export function Toolbar({ tool, onTool, selectedCount, onDelete }: Props) {
   return (
-    <header className="h-12 bg-[#111] border-b border-white/8 flex items-center px-4 gap-3">
-      <a href="/" className="text-sm font-semibold text-white/80 hover:text-white transition-colors mr-2">
+    <header className="h-12 bg-[#111] border-b border-white/8 flex items-center px-4 gap-3 flex-shrink-0">
+      <a href="/" className="text-sm font-semibold text-white/80 hover:text-white transition-colors">
         Vylder
       </a>
-
       <div className="w-px h-5 bg-white/10" />
 
-      <span className="text-xs text-white/30">Editor</span>
+      {/* Tool buttons */}
+      <div className="flex items-center gap-0.5 bg-white/5 rounded-lg p-1">
+        {TOOLS.map((t) => (
+          <button
+            key={t.id}
+            title={`${t.label} (${t.key})`}
+            onClick={() => onTool(t.id)}
+            className={`flex items-center justify-center w-8 h-7 rounded-md text-sm transition-all ${
+              tool === t.id
+                ? "bg-white text-black shadow-sm"
+                : "text-white/50 hover:text-white hover:bg-white/10"
+            }`}
+          >
+            {t.icon}
+          </button>
+        ))}
+      </div>
 
       <div className="flex-1" />
 
-      {selectedBlock && (
-        <>
-          <span className="text-xs text-white/40 font-mono">{selectedBlock.type}</span>
-          <button
-            onClick={onDeselect}
-            className="text-xs px-3 py-1.5 rounded-md text-white/50 hover:text-white hover:bg-white/8 transition-colors"
-          >
-            Abwählen
-          </button>
-          <button
-            onClick={onDelete}
-            className="text-xs px-3 py-1.5 rounded-md text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
-          >
-            Löschen ✕
-          </button>
-        </>
-      )}
-
-      {!selectedBlock && (
-        <span className="text-xs text-white/25">Klicke eine Komponente zum Auswählen</span>
+      {selectedCount > 0 && (
+        <button
+          onClick={onDelete}
+          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
+        >
+          Löschen ✕
+        </button>
       )}
     </header>
   );

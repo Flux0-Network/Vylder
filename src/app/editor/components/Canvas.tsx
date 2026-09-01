@@ -1,111 +1,310 @@
 "use client";
 
-import { useRef, useCallback } from "react";
-import type { CanvasBlock } from "../types";
+import { useRef, useCallback, useState } from "react";
+import type { CanvasBlock, Tool } from "../types";
 import { BlockRenderer } from "./BlockRenderer";
+import { snapToOthers, applyResize, type ResizeHandle } from "../utils/snap";
 
-const CANVAS_W = 1200;
-const CANVAS_H = 900;
+const CANVAS_W = 1440;
+const CANVAS_H = 960;
+
+const HANDLES: ResizeHandle[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
+
+const HANDLE_STYLE: Record<ResizeHandle, React.CSSProperties> = {
+  nw: { top: -5, left: -5, cursor: "nw-resize" },
+  n:  { top: -5, left: "50%", transform: "translateX(-50%)", cursor: "n-resize" },
+  ne: { top: -5, right: -5, cursor: "ne-resize" },
+  e:  { right: -5, top: "50%", transform: "translateY(-50%)", cursor: "e-resize" },
+  se: { bottom: -5, right: -5, cursor: "se-resize" },
+  s:  { bottom: -5, left: "50%", transform: "translateX(-50%)", cursor: "s-resize" },
+  sw: { bottom: -5, left: -5, cursor: "sw-resize" },
+  w:  { left: -5, top: "50%", transform: "translateY(-50%)", cursor: "w-resize" },
+};
+
+interface DrawPreview { x: number; y: number; width: number; height: number }
 
 interface Props {
   blocks: CanvasBlock[];
   selectedId: string | null;
+  tool: Tool;
   onSelect: (id: string | null) => void;
-  onMove: (id: string, x: number, y: number) => void;
+  onUpdate: (id: string, patch: Partial<CanvasBlock>) => void;
+  onAdd: (block: Omit<CanvasBlock, "id">) => void;
 }
 
-export function Canvas({ blocks, selectedId, onSelect, onMove }: Props) {
+export function Canvas({ blocks, selectedId, tool, onSelect, onUpdate, onAdd }: Props) {
   const canvasRef = useRef<HTMLDivElement>(null);
+  const [guideX, setGuideX] = useState<number | null>(null);
+  const [guideY, setGuideY] = useState<number | null>(null);
+  const [drawing, setDrawing] = useState<DrawPreview | null>(null);
 
-  const startDrag = useCallback(
+  function canvasCoords(clientX: number, clientY: number) {
+    const rect = canvasRef.current!.getBoundingClientRect();
+    const scale = rect.width / CANVAS_W;
+    return {
+      x: (clientX - rect.left) / scale,
+      y: (clientY - rect.top) / scale,
+      scale,
+    };
+  }
+
+  // ── Move ─────────────────────────────────────────────────────────────────
+  const startMove = useCallback(
     (e: React.MouseEvent, block: CanvasBlock) => {
+      if (tool !== "select") return;
       e.preventDefault();
       e.stopPropagation();
       onSelect(block.id);
 
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const rect = canvas.getBoundingClientRect();
-      const scale = rect.width / CANVAS_W;
+      const { x: cx, y: cy } = canvasCoords(e.clientX, e.clientY);
+      const offsetX = cx - block.x;
+      const offsetY = cy - block.y;
+      const others = blocks.filter((b) => b.id !== block.id);
 
-      // Offset between mouse and block's top-left corner
-      const offsetX = (e.clientX - rect.left) / scale - block.x;
-      const offsetY = (e.clientY - rect.top) / scale - block.y;
+      function onMove(ev: MouseEvent) {
+        const { x: mx, y: my } = canvasCoords(ev.clientX, ev.clientY);
+        const raw = { x: mx - offsetX, y: my - offsetY, width: block.width, height: block.height };
+        const { x, y, guideX: gx, guideY: gy } = snapToOthers(raw, others);
+        setGuideX(gx);
+        setGuideY(gy);
+        onUpdate(block.id, {
+          x: Math.max(0, Math.min(CANVAS_W - block.width, x)),
+          y: Math.max(0, Math.min(CANVAS_H - block.height, y)),
+        });
+      }
 
-      const onMouseMove = (ev: MouseEvent) => {
-        const r = canvas.getBoundingClientRect();
-        const mx = (ev.clientX - r.left) / scale;
-        const my = (ev.clientY - r.top) / scale;
-        const newX = Math.max(0, Math.min(CANVAS_W - block.width, mx - offsetX));
-        const newY = Math.max(0, Math.min(CANVAS_H - 40, my - offsetY));
-        onMove(block.id, newX, newY);
-      };
+      function onUp() {
+        setGuideX(null);
+        setGuideY(null);
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+      }
 
-      const onMouseUp = () => {
-        window.removeEventListener("mousemove", onMouseMove);
-        window.removeEventListener("mouseup", onMouseUp);
-      };
-
-      window.addEventListener("mousemove", onMouseMove);
-      window.addEventListener("mouseup", onMouseUp);
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
     },
-    [onSelect, onMove]
+    [tool, blocks, onSelect, onUpdate]
   );
+
+  // ── Resize ────────────────────────────────────────────────────────────────
+  const startResize = useCallback(
+    (e: React.MouseEvent, block: CanvasBlock, handle: ResizeHandle) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const { x: startX, y: startY, scale } = canvasCoords(e.clientX, e.clientY);
+      const origin = { x: block.x, y: block.y, width: block.width, height: block.height };
+
+      function onMove(ev: MouseEvent) {
+        const rect = canvasRef.current!.getBoundingClientRect();
+        const mx = (ev.clientX - rect.left) / scale;
+        const my = (ev.clientY - rect.top) / scale;
+        const dx = mx - startX;
+        const dy = my - startY;
+        onUpdate(block.id, applyResize(handle, origin, dx, dy));
+      }
+
+      function onUp() {
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+      }
+
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+    },
+    [onUpdate]
+  );
+
+  // ── Draw shapes ───────────────────────────────────────────────────────────
+  const startDraw = useCallback(
+    (e: React.MouseEvent) => {
+      if (tool === "select") return;
+      e.preventDefault();
+
+      const { x: sx, y: sy, scale } = canvasCoords(e.clientX, e.clientY);
+      setDrawing({ x: sx, y: sy, width: 0, height: 0 });
+
+      function onMove(ev: MouseEvent) {
+        const rect = canvasRef.current!.getBoundingClientRect();
+        const mx = (ev.clientX - rect.left) / scale;
+        const my = (ev.clientY - rect.top) / scale;
+        setDrawing({
+          x: Math.min(sx, mx),
+          y: Math.min(sy, my),
+          width: Math.abs(mx - sx),
+          height: Math.abs(my - sy),
+        });
+      }
+
+      function onUp(ev: MouseEvent) {
+        const rect = canvasRef.current!.getBoundingClientRect();
+        const mx = (ev.clientX - rect.left) / scale;
+        const my = (ev.clientY - rect.top) / scale;
+        const w = Math.abs(mx - sx);
+        const h = Math.abs(my - sy);
+
+        if (w > 4 && h > 4) {
+          const typeMap: Record<Tool, CanvasBlock["type"]> = {
+            rect: "rect",
+            circle: "circle",
+            frame: "frame",
+            text: "text",
+            select: "rect",
+          };
+          onAdd({
+            type: typeMap[tool],
+            x: Math.min(sx, mx),
+            y: Math.min(sy, my),
+            width: w,
+            height: h,
+            props: {
+              fill: tool === "frame" ? "transparent" : "#d1d5db",
+              fillOpacity: 1,
+              stroke: tool === "frame" ? "#9ca3af" : undefined,
+              strokeWidth: tool === "frame" ? 1 : 0,
+              radius: tool === "circle" ? 9999 : 0,
+              ...(tool === "text" ? { text: "Text", fontSize: 18, color: "#111111" } : {}),
+            },
+          });
+        }
+        setDrawing(null);
+
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+      }
+
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+    },
+    [tool, onAdd]
+  );
+
+  const selected = blocks.find((b) => b.id === selectedId);
 
   return (
     <div className="flex-1 bg-[#1a1a1a] overflow-auto">
-      <div className="min-w-full min-h-full p-12 flex items-start justify-center">
+      <div className="min-w-full min-h-full p-10 flex items-start justify-center">
         <div
           ref={canvasRef}
-          className="relative bg-white rounded-lg shadow-2xl flex-shrink-0"
-          style={{ width: CANVAS_W, height: CANVAS_H }}
+          className="relative bg-white rounded-xl shadow-2xl flex-shrink-0"
+          style={{
+            width: CANVAS_W,
+            height: CANVAS_H,
+            cursor: tool === "select" ? "default" : "crosshair",
+          }}
+          onMouseDown={startDraw}
           onClick={() => onSelect(null)}
         >
           {/* Dot grid */}
           <div
-            className="absolute inset-0 rounded-lg pointer-events-none opacity-25"
+            className="absolute inset-0 rounded-xl pointer-events-none opacity-20"
             style={{
-              backgroundImage: "radial-gradient(circle, #bbb 1px, transparent 1px)",
+              backgroundImage: "radial-gradient(circle, #aaa 1px, transparent 1px)",
               backgroundSize: "24px 24px",
             }}
           />
 
+          {/* Snap guides */}
+          {guideX !== null && (
+            <div
+              className="absolute top-0 bottom-0 w-px bg-[#7c5cfc] opacity-70 pointer-events-none"
+              style={{ left: guideX }}
+            />
+          )}
+          {guideY !== null && (
+            <div
+              className="absolute left-0 right-0 h-px bg-[#7c5cfc] opacity-70 pointer-events-none"
+              style={{ top: guideY }}
+            />
+          )}
+
+          {/* Drawing preview */}
+          {drawing && tool !== "select" && (
+            <div
+              className="absolute border-2 border-dashed border-[#7c5cfc] bg-[#7c5cfc]/10 pointer-events-none"
+              style={{
+                left: drawing.x,
+                top: drawing.y,
+                width: drawing.width,
+                height: drawing.height,
+                borderRadius: tool === "circle" ? "9999px" : 0,
+              }}
+            />
+          )}
+
+          {/* Empty state */}
           {blocks.length === 0 && (
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none">
-              <div className="text-5xl mb-3 opacity-20">✦</div>
-              <p className="text-sm font-medium text-gray-400">Leere Canvas</p>
-              <p className="text-xs text-gray-300 mt-1">Wähle links eine Komponente aus</p>
+              <div className="text-4xl mb-3 opacity-15">✦</div>
+              <p className="text-sm text-gray-400">Wähle links eine Komponente oder zeichne eine Form</p>
             </div>
           )}
 
-          {blocks.map((block) => (
-            <div
-              key={block.id}
-              className="absolute cursor-move select-none"
-              style={{ left: block.x, top: block.y, width: block.width }}
-              onMouseDown={(e) => startDrag(e, block)}
-              onClick={(e) => { e.stopPropagation(); onSelect(block.id); }}
-            >
-              <div
-                className={`rounded transition-shadow ${
-                  selectedId === block.id
-                    ? "outline outline-2 outline-offset-1 outline-[#7c5cfc] shadow-[0_0_0_4px_rgba(124,92,252,0.12)]"
-                    : "hover:outline hover:outline-1 hover:outline-offset-1 hover:outline-gray-300"
-                }`}
-              >
-                <BlockRenderer block={block} selected={selectedId === block.id} />
-              </div>
+          {/* Blocks */}
+          {blocks.map((block) => {
+            const isSel = selectedId === block.id;
+            const isShape = block.type === "rect" || block.type === "circle" || block.type === "frame";
+            const p = block.props;
 
-              {selectedId === block.id && (
-                <>
-                  <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-[#7c5cfc] rounded-sm pointer-events-none" />
-                  <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-[#7c5cfc] rounded-sm pointer-events-none" />
-                  <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-[#7c5cfc] rounded-sm pointer-events-none" />
-                  <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-[#7c5cfc] rounded-sm pointer-events-none" />
-                </>
-              )}
-            </div>
-          ))}
+            return (
+              <div
+                key={block.id}
+                className="absolute select-none"
+                style={{
+                  left: block.x,
+                  top: block.y,
+                  width: block.width,
+                  height: block.height,
+                  opacity: p.opacity ?? 1,
+                  cursor: tool === "select" ? "move" : "default",
+                }}
+                onMouseDown={(e) => startMove(e, block)}
+                onClick={(e) => { e.stopPropagation(); onSelect(block.id); }}
+              >
+                {/* Shape rendering */}
+                {isShape && (
+                  <div
+                    className="w-full h-full"
+                    style={{
+                      backgroundColor: p.fill === "transparent" ? "transparent" : (p.fill ?? "#d1d5db"),
+                      opacity: p.fillOpacity ?? 1,
+                      borderRadius: p.radius ?? (block.type === "circle" ? "9999px" : 0),
+                      border: p.strokeWidth
+                        ? `${p.strokeWidth}px ${block.type === "frame" ? "dashed" : "solid"} ${p.stroke ?? "#000"}`
+                        : undefined,
+                    }}
+                  />
+                )}
+
+                {/* Component rendering */}
+                {!isShape && (
+                  <BlockRenderer block={block} selected={isSel} />
+                )}
+
+                {/* Selection outline */}
+                {isSel && (
+                  <div
+                    className="absolute inset-0 pointer-events-none rounded-sm"
+                    style={{
+                      outline: "2px solid #7c5cfc",
+                      outlineOffset: "1px",
+                      boxShadow: "0 0 0 4px rgba(124,92,252,0.12)",
+                    }}
+                  />
+                )}
+
+                {/* Resize handles */}
+                {isSel && HANDLES.map((h) => (
+                  <div
+                    key={h}
+                    className="absolute w-2.5 h-2.5 bg-white border-2 border-[#7c5cfc] rounded-sm z-10"
+                    style={{ ...HANDLE_STYLE[h], position: "absolute" }}
+                    onMouseDown={(e) => { e.stopPropagation(); startResize(e, block, h); }}
+                  />
+                ))}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
