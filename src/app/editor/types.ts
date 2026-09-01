@@ -13,6 +13,7 @@ export interface BlockProps {
   brand?: string;
   items?: string;
   alt?: string;
+  link?: string;
   // appearance
   fill?: string;
   fillOpacity?: number;
@@ -26,6 +27,21 @@ export interface BlockProps {
   fontWeight?: string;
   color?: string;
   textAlign?: string;
+  // layout
+  layoutType?: "stack" | "grid";
+  layoutDir?: "horizontal" | "vertical";
+  layoutDistribute?: "start" | "center" | "end" | "space-between" | "space-around";
+  layoutAlign?: "start" | "center" | "end";
+  layoutWrap?: boolean;
+  paddingT?: number;
+  paddingR?: number;
+  paddingB?: number;
+  paddingL?: number;
+  // size constraints
+  widthType?: "fixed" | "fit" | "fill";
+  heightType?: "fixed" | "fit" | "fill";
+  maxWidth?: string;
+  positionType?: "relative" | "absolute" | "fixed" | "sticky";
 }
 
 export interface CanvasBlock {
