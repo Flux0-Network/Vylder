@@ -30,9 +30,10 @@ interface Props {
   onSelect: (id: string | null) => void;
   onUpdate: (id: string, patch: Partial<CanvasBlock>) => void;
   onAdd: (block: Omit<CanvasBlock, "id">) => void;
+  darkCanvas?: boolean;
 }
 
-export function Canvas({ blocks, selectedId, tool, onSelect, onUpdate, onAdd }: Props) {
+export function Canvas({ blocks, selectedId, tool, onSelect, onUpdate, onAdd, darkCanvas }: Props) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [guideX, setGuideX] = useState<number | null>(null);
   const [guideY, setGuideY] = useState<number | null>(null);
@@ -181,15 +182,20 @@ export function Canvas({ blocks, selectedId, tool, onSelect, onUpdate, onAdd }: 
 
   const selected = blocks.find((b) => b.id === selectedId);
 
+  const canvasBg = darkCanvas ? "#141414" : "#ffffff";
+  const dotColor = darkCanvas ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.15)";
+  const emptyTextColor = darkCanvas ? "rgba(255,255,255,0.25)" : "#9ca3af";
+
   return (
-    <div className="flex-1 bg-[#1a1a1a] overflow-auto">
+    <div className="flex-1 overflow-auto" style={{ background: "#0d0d0d" }}>
       <div className="min-w-full min-h-full p-10 flex items-start justify-center">
         <div
           ref={canvasRef}
-          className="relative bg-white rounded-xl shadow-2xl flex-shrink-0"
+          className="relative rounded-xl shadow-2xl flex-shrink-0"
           style={{
             width: CANVAS_W,
             height: CANVAS_H,
+            background: canvasBg,
             cursor: tool === "select" ? "default" : "crosshair",
           }}
           onMouseDown={startDraw}
@@ -197,9 +203,9 @@ export function Canvas({ blocks, selectedId, tool, onSelect, onUpdate, onAdd }: 
         >
           {/* Dot grid */}
           <div
-            className="absolute inset-0 rounded-xl pointer-events-none opacity-20"
+            className="absolute inset-0 rounded-xl pointer-events-none"
             style={{
-              backgroundImage: "radial-gradient(circle, #aaa 1px, transparent 1px)",
+              backgroundImage: `radial-gradient(circle, ${dotColor} 1px, transparent 1px)`,
               backgroundSize: "24px 24px",
             }}
           />
@@ -235,8 +241,8 @@ export function Canvas({ blocks, selectedId, tool, onSelect, onUpdate, onAdd }: 
           {/* Empty state */}
           {blocks.length === 0 && (
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none">
-              <div className="text-4xl mb-3 opacity-15">✦</div>
-              <p className="text-sm text-gray-400">Wähle links eine Komponente oder zeichne eine Form</p>
+              <div className="text-4xl mb-3 opacity-15" style={{ color: emptyTextColor }}>✦</div>
+              <p className="text-sm" style={{ color: emptyTextColor }}>Wähle links eine Komponente oder zeichne eine Form</p>
             </div>
           )}
 

@@ -15,6 +15,7 @@ export default function EditorPage() {
   const [blocks, setBlocks] = useState<CanvasBlock[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tool, setTool] = useState<Tool>("select");
+  const [darkCanvas, setDarkCanvas] = useState(true);
 
   const selectedBlock = blocks.find((b) => b.id === selectedId) ?? null;
 
@@ -83,6 +84,8 @@ export default function EditorPage() {
         onTool={setTool}
         selectedCount={selectedId ? 1 : 0}
         onDelete={deleteSelected}
+        darkCanvas={darkCanvas}
+        onToggleDark={() => setDarkCanvas((d) => !d)}
       />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar onAdd={addFromPalette} />
@@ -93,6 +96,7 @@ export default function EditorPage() {
           onSelect={setSelectedId}
           onUpdate={updateBlock}
           onAdd={addFromCanvas}
+          darkCanvas={darkCanvas}
         />
         <PropertiesPanel block={selectedBlock} onChange={updateBlock} />
       </div>
