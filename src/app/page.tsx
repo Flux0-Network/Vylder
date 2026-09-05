@@ -40,13 +40,6 @@ function Nav() {
 function Hero() {
   return (
     <section className="pt-40 pb-32 px-6 text-center relative overflow-hidden">
-      {/* Glow */}
-      <div
-        aria-hidden
-        className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] rounded-full opacity-20 blur-[120px] pointer-events-none"
-        style={{ background: "radial-gradient(ellipse, #7c5cfc 0%, transparent 70%)" }}
-      />
-
       <div className="relative max-w-4xl mx-auto">
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-xs text-white/60 mb-8">
           <span className="w-1.5 h-1.5 rounded-full bg-[#7c5cfc] animate-pulse" />
@@ -150,12 +143,6 @@ function Hero() {
           </div>
         </div>
 
-        {/* Shadow glow below */}
-        <div
-          aria-hidden
-          className="absolute -bottom-20 left-1/2 -translate-x-1/2 w-3/4 h-32 opacity-30 blur-3xl pointer-events-none"
-          style={{ background: "#7c5cfc" }}
-        />
       </div>
     </section>
   );
